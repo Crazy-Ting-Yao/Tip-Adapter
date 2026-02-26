@@ -11,7 +11,7 @@ import torchvision.transforms as transforms
 
 from datasets import build_dataset
 from datasets.utils import build_data_loader
-import clip
+from backbones import load_backbone
 from utils import *
 
 
@@ -123,8 +123,13 @@ def run_tip_adapter_F(cfg, cache_keys, cache_values, val_features, val_labels, t
             best_epoch = train_idx
             torch.save(adapter.weight, cfg['cache_dir'] + "/best_F_" + str(cfg['shots']) + "shots.pt")
     
-    adapter.weight = torch.load(cfg['cache_dir'] + "/best_F_" + str(cfg['shots']) + "shots.pt")
-    print(f"**** After fine-tuning, Tip-Adapter-F's best test accuracy: {best_acc:.2f}, at epoch: {best_epoch}. ****\n")
+    model_path = cfg['cache_dir'] + "/best_F_" + str(cfg['shots']) + "shots.pt"
+    if os.path.exists(model_path):
+        adapter.weight = torch.load(model_path, weights_only=True)
+        print(f"**** After fine-tuning, Tip-Adapter-F's best test accuracy: {best_acc:.2f}, at epoch: {best_epoch}. ****\n")
+    else:
+        print(f"**** No improvement during fine-tuning. Best accuracy: {best_acc:.2f}. ****\n")
+        return
 
     print("\n-------- Searching hyperparameters on the val set. --------")
 
@@ -156,9 +161,10 @@ def main():
     print("\nRunning configs.")
     print(cfg, "\n")
 
-    # CLIP
-    clip_model, preprocess = clip.load(cfg['backbone'])
-    clip_model.eval()
+    # Backbone: CLIP or Qwen2.5-VL-7B-Instruct
+    clip_model, preprocess = load_backbone(cfg["backbone"])
+    if hasattr(clip_model, "eval"):
+        clip_model.eval()
 
     # Prepare dataset
     random.seed(1)
@@ -180,9 +186,9 @@ def main():
     train_loader_cache = build_data_loader(data_source=dataset.train_x, batch_size=256, tfm=train_tranform, is_train=True, shuffle=False)
     train_loader_F = build_data_loader(data_source=dataset.train_x, batch_size=256, tfm=train_tranform, is_train=True, shuffle=True)
 
-    # Textual features
-    print("\nGetting textual features as CLIP's classifier.")
-    clip_weights = clip_classifier(dataset.classnames, dataset.template, clip_model)
+    # Textual features (classifier weights)
+    print("\nGetting textual features as classifier.")
+    clip_weights = get_classifier_weights(dataset.classnames, dataset.template, clip_model)
 
     # Construct the cache model by few-shot training set
     print("\nConstructing cache model by few-shot visual features and labels.")

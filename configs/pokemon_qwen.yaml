@@ -1,0 +1,21 @@
+# Tip-Adapter with Qwen2.5-VL-7B-Instruct backbone (instead of CLIP)
+# Requires: pip install transformers accelerate
+root_path: './data'
+
+load_cache: False
+load_pre_feat: False
+
+search_hp: True
+search_scale: [12, 5]
+search_step: [200, 20]
+
+init_beta: 1
+init_alpha: 3
+
+dataset: 'pokemon'
+shots: 1
+backbone: 'Qwen/Qwen2.5-VL-7B-Instruct'
+
+lr: 0.001
+augment_epoch: 10
+train_epoch: 20

@@ -35,6 +35,25 @@ def clip_classifier(classnames, template, clip_model):
     return clip_weights
 
 
+def get_classifier_weights(classnames, template, model):
+    """Return (D, num_classes) classifier weights. Dispatches to CLIP or Qwen2.5-VL."""
+    if hasattr(model, "encode_text"):
+        # Qwen2.5-VL wrapper
+        with torch.no_grad():
+            weights_list = []
+            for classname in classnames:
+                classname = classname.replace("_", " ")
+                texts = [t.format(classname) for t in template]
+                class_embeddings = model.encode_text(texts)
+                class_embeddings = class_embeddings.T
+                class_embeddings = class_embeddings / (class_embeddings.norm(dim=-1, keepdim=True) + 1e-8)
+                class_embedding = class_embeddings.mean(dim=0)
+                class_embedding = class_embedding / (class_embedding.norm() + 1e-8)
+                weights_list.append(class_embedding)
+            return torch.stack(weights_list, dim=1).cuda()
+    return clip_classifier(classnames, template, model)
+
+
 def build_cache_model(cfg, clip_model, train_loader_cache):
 
     if cfg['load_cache'] == False:    
@@ -59,14 +78,15 @@ def build_cache_model(cfg, clip_model, train_loader_cache):
         cache_keys = torch.cat(cache_keys, dim=0).mean(dim=0)
         cache_keys /= cache_keys.norm(dim=-1, keepdim=True)
         cache_keys = cache_keys.permute(1, 0)
-        cache_values = F.one_hot(torch.cat(cache_values, dim=0)).half()
+        # Use float32 for broad backbone compatibility (CLIP/Qwen, etc.)
+        cache_values = F.one_hot(torch.cat(cache_values, dim=0)).float()
 
         torch.save(cache_keys, cfg['cache_dir'] + '/keys_' + str(cfg['shots']) + "shots.pt")
         torch.save(cache_values, cfg['cache_dir'] + '/values_' + str(cfg['shots']) + "shots.pt")
 
     else:
         cache_keys = torch.load(cfg['cache_dir'] + '/keys_' + str(cfg['shots']) + "shots.pt")
-        cache_values = torch.load(cfg['cache_dir'] + '/values_' + str(cfg['shots']) + "shots.pt")
+        cache_values = torch.load(cfg['cache_dir'] + '/values_' + str(cfg['shots']) + "shots.pt").float()
 
     return cache_keys, cache_values
 

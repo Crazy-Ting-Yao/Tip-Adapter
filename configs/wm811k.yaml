@@ -1,0 +1,27 @@
+# ------ root_path/dataset_name ------
+root_path: './data'
+
+
+# ------ Load Cache and Features ------
+load_cache: False
+load_pre_feat: False
+
+
+# ------ Hyperparamters ------
+search_hp: True
+
+search_scale: [12, 5]
+search_step: [200, 20]
+
+init_beta: 1
+init_alpha: 3
+
+
+# ------ Basic Config ------
+dataset: 'wm811k'
+shots: 8  # 8-shot
+backbone: 'ViT-B/16'
+
+lr: 0.001
+augment_epoch: 10
+train_epoch: 20

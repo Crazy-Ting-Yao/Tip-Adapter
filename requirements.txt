@@ -12,3 +12,8 @@ ftfy
 regex
 wilds==1.2.2
 tabulate
+datasets
+huggingface_hub
+# For Qwen2.5-VL backbone (optional):
+# transformers>=4.45
+# accelerate

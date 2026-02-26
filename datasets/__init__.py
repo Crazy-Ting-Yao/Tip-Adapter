@@ -8,6 +8,11 @@ from .fgvc import FGVCAircraft
 from .food101 import Food101
 from .oxford_flowers import OxfordFlowers
 from .stanford_cars import StanfordCars
+from .pokemon import Pokemon
+from .retinal import Retinal
+from .wm811k import WM811k
+from .libero import LIBERO
+from .mvtec import MVTec, MVTEC_OBJECTS
 
 
 dataset_list = {
@@ -21,6 +26,11 @@ dataset_list = {
                 "food101": Food101,
                 "oxford_flowers": OxfordFlowers,
                 "stanford_cars": StanfordCars,
+                "pokemon": Pokemon,
+                "retinal": Retinal,
+                "wm811k": WM811k,
+                "libero": LIBERO,
+                **{f"mvtec_{obj}": (lambda o: lambda root, shots: MVTec(root, shots, o))(obj) for obj in MVTEC_OBJECTS},
                 }
 
 
