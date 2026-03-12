@@ -2,7 +2,7 @@
 #SBATCH --job-name=Tip-Adapter-MVTec
 #SBATCH --partition=dev
 #SBATCH --time=02:00:00
-#SBATCH --account=MST114475
+#SBATCH --account=MST113264
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
 #SBATCH --cpus-per-task=4
@@ -33,7 +33,7 @@ echo "Train split: 1_shot"
 echo "Test split: test"
 echo ""
 
-source $(conda info --base)/etc/profile.d/conda.sh
+ml load miniconda3
 conda activate tip_adapter || { echo "Error: tip_adapter environment not found."; exit 1; }
 pip install datasets huggingface_hub -q
 mkdir -p ./data

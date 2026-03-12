@@ -1,6 +1,6 @@
 """
-Load vision-language backbone: CLIP or Qwen2.5-VL-7B-Instruct.
-Config: backbone = "ViT-B/16" (CLIP) or "Qwen2.5-VL-7B-Instruct" (Qwen).
+Load vision-language backbone: CLIP, Qwen2.5-VL-7B-Instruct, or LLaVA v1.6 Mistral 7B.
+Config: backbone = "ViT-B/16" (CLIP), "Qwen2.5-VL-7B-Instruct" (Qwen), or "llava-hf/llava-v1.6-mistral-7b-hf" (LLaVA).
 Returns (model, preprocess) with unified interface: model.encode_image(x), model has .dtype.
 Classifier weights via get_classifier_weights(classnames, template, model) in utils.
 """
@@ -16,9 +16,16 @@ def _is_qwen_backbone(backbone):
     return any(b in backbone for b in ("Qwen2.5-VL", "qwen2.5-vl", "Qwen2.5_VL"))
 
 
+def _is_llava_backbone(backbone):
+    b = backbone.lower()
+    return "llava" in b or "llava-hf" in b
+
+
 def load_backbone(backbone_name):
     if _is_qwen_backbone(backbone_name):
         return _load_qwen_vl(backbone_name)
+    if _is_llava_backbone(backbone_name):
+        return _load_llava_vl(backbone_name)
     import clip
     model, preprocess = clip.load(backbone_name)
     model.eval()
@@ -46,6 +53,85 @@ def _load_qwen_vl(model_name="Qwen/Qwen2.5-VL-7B-Instruct"):
         T.ToTensor(),
     ])
     return wrapper, preprocess
+
+
+def _load_llava_vl(model_name="llava-hf/llava-v1.6-mistral-7b-hf"):
+    """Load LLaVA v1.6 Mistral 7B HF; returns (wrapper, preprocess) with encode_image/encode_text."""
+    try:
+        from transformers import LlavaNextForConditionalGeneration, AutoProcessor
+    except ImportError:
+        raise ImportError(
+            "Install transformers (>=4.42) and accelerate for LLaVA: pip install 'transformers>=4.42' accelerate"
+        )
+    model = LlavaNextForConditionalGeneration.from_pretrained(
+        model_name,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+    )
+    model.eval()
+    processor = AutoProcessor.from_pretrained(model_name)
+    wrapper = LlavaVLWrapper(model, processor)
+    preprocess = T.Compose([
+        T.Resize((224, 224), interpolation=T.InterpolationMode.BICUBIC),
+        T.ToTensor(),
+    ])
+    return wrapper, preprocess
+
+
+class LlavaVLWrapper(torch.nn.Module):
+    """Wrapper so LLaVA v1.6 Mistral can be used like CLIP: encode_image(batch) -> (B, D), encode_text(texts) -> (D, N)."""
+
+    def __init__(self, model, processor):
+        super().__init__()
+        self.model = model
+        self.processor = processor
+
+    @property
+    def dtype(self):
+        return next(self.model.parameters()).dtype
+
+    def _tensor_batch_to_pil(self, images):
+        out = []
+        for i in range(images.shape[0]):
+            x = images[i].cpu().float()
+            if x.max() <= 1.0:
+                x = (x * 255).clamp(0, 255)
+            x = x.permute(1, 2, 0).numpy().astype(np.uint8)
+            out.append(Image.fromarray(x))
+        return out
+
+    def encode_image(self, images):
+        pil_list = self._tensor_batch_to_pil(images)
+        device = next(self.model.parameters()).device
+        feats = []
+        for pil_img in pil_list:
+            prompt = "[INST] <image>\nDescribe this image. [/INST]"
+            inputs = self.processor(text=prompt, images=pil_img, return_tensors="pt")
+            inputs = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
+            with torch.no_grad():
+                out = self.model(**inputs, output_hidden_states=True)
+            hidden = out.hidden_states[-1].float()
+            feat = hidden.mean(dim=1)
+            feats.append(feat)
+        features = torch.cat(feats, dim=0)
+        features = features / (features.norm(dim=-1, keepdim=True) + 1e-8)
+        return features.to(device=device, dtype=images.dtype if images.is_cuda else features.dtype)
+
+    def encode_text(self, texts):
+        device = next(self.model.parameters()).device
+        feats = []
+        for text in texts:
+            prompt = f"[INST] {text} [/INST]"
+            inputs = self.processor(text=prompt, return_tensors="pt")
+            inputs = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
+            with torch.no_grad():
+                out = self.model.model(**inputs, output_hidden_states=True)
+            hidden = out.hidden_states[-1].float()
+            feat = hidden[:, -1, :]
+            feats.append(feat)
+        features = torch.cat(feats, dim=0)
+        features = features / (features.norm(dim=-1, keepdim=True) + 1e-8)
+        return features.T
 
 
 class QwenVLWrapper(torch.nn.Module):

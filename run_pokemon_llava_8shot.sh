@@ -1,0 +1,40 @@
+#!/bin/bash
+#SBATCH --job-name=Tip-Pokemon-LLaVA-8s
+#SBATCH --partition=dev
+#SBATCH --time=02:00:00
+#SBATCH --account=MST113264
+#SBATCH --nodes=1
+#SBATCH --gpus-per-node=1
+#SBATCH --cpus-per-task=4
+#SBATCH --output=/work/u8686038/log/Tip-Adapter-Pokemon-LLaVA-8shot_%j.log
+#SBATCH --error=/work/u8686038/log/Tip-Adapter-Pokemon-LLaVA-8shot_%j.log
+
+# Run Tip-Adapter on Pokemon (8-shot) with LLaVA v1.6 Mistral 7B backbone
+# Train: andyqmongo/IVL_CLS_pokemon_8_shot, Test: andyqmongo/pokemon_eval_standard
+
+set -e
+
+echo "=========================================="
+echo "Tip-Adapter on Pokemon (LLaVA v1.6 Mistral 7B, 8-shot)"
+echo "=========================================="
+echo ""
+
+ml load miniconda3
+conda activate tip_adapter || {
+    echo "Error: tip_adapter environment not found."
+    exit 1
+}
+
+# Use HF_TOKEN from environment (set before sbatch for private HuggingFace datasets)
+export HF_TOKEN=${HF_TOKEN:-""}
+pip install datasets huggingface_hub transformers accelerate -q
+mkdir -p ./data
+
+cd /work/u8686038/Tip-Adapter
+CUDA_VISIBLE_DEVICES=${1:-0} python main.py --config configs/pokemon_llava_8shot.yaml
+
+echo ""
+echo "=========================================="
+echo "Done."
+echo "=========================================="
+

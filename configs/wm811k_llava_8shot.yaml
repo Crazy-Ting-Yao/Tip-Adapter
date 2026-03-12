@@ -1,0 +1,20 @@
+# Tip-Adapter on WM811k (8-shot) with LLaVA v1.6 Mistral 7B backbone
+root_path: './data'
+
+load_cache: False
+load_pre_feat: False
+
+search_hp: True
+search_scale: [12, 5]
+search_step: [200, 20]
+
+init_beta: 1
+init_alpha: 3
+
+dataset: 'wm811k'
+shots: 8
+backbone: 'llava-hf/llava-v1.6-mistral-7b-hf'
+
+lr: 0.001
+augment_epoch: 10
+train_epoch: 20

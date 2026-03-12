@@ -1,1 +1,7 @@
 data/*
+
+# Environment and secrets (never commit tokens)
+.env
+.env.local
+.env.*.local
+*.token

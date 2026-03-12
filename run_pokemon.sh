@@ -2,7 +2,7 @@
 #SBATCH --job-name=Tip-Adapter-Pokemon
 #SBATCH --partition=dev
 #SBATCH --time=02:00:00
-#SBATCH --account=MST114475
+#SBATCH --account=MST113264
 #SBATCH --nodes=1
 #SBATCH --gpus-per-node=1
 #SBATCH --cpus-per-task=4
@@ -24,7 +24,7 @@ echo "Test dataset: andyqmongo/pokemon_eval_standard"
 echo ""
 
 # Activate conda environment
-source $(conda info --base)/etc/profile.d/conda.sh
+ml load miniconda3
 conda activate tip_adapter || {
     echo "Error: tip_adapter environment not found. Creating it..."
     bash /work/u8686038/Tip-Adapter/setup/install_conda.sh tip_adapter 12.1

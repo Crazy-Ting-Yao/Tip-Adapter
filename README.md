@@ -33,6 +33,14 @@ conda install pytorch torchvision cudatoolkit
 ### Dataset
 Follow [DATASET.md](https://github.com/gaopengcuhk/Tip-Adapter/blob/main/DATASET.md) to install ImageNet and other 10 datasets referring to CoOp.
 
+### HuggingFace (private datasets)
+Scripts that load data from HuggingFace (e.g. Pokemon, WM811k, Retinal, LIBERO, MVTec) read **`HF_TOKEN` from the environment** only. Set it before running or in your job script (do not commit tokens):
+
+```bash
+export HF_TOKEN=your_huggingface_read_token
+sbatch run_pokemon_llava.sh
+```
+
 ## Get Started
 ### Configs
 The running configurations can be modified in `configs/dataset.yaml`, including shot numbers, visual encoders, and hyperparamters. 
